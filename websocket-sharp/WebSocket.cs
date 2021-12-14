@@ -98,7 +98,9 @@ namespace WebSocketSharp
     private volatile bool                  _inMessage;
     private volatile Logger                _logger;
     private static readonly int            _maxRetryCountForConnect;
-    private Action<MessageEventArgs>       _message;
+    //private Action<MessageEventArgs>       _message;
+    //This is used to replace _message in a way that doesn't use actions for TML 1.4, as Actions are not supported
+    private string                         _messageActionType;
     private Queue<MessageEventArgs>        _messageEventQueue;
     private uint                           _nonceCount;
     private string                         _origin;
@@ -172,7 +174,7 @@ namespace WebSocketSharp
 
       _closeContext = context.Close;
       _logger = context.Log;
-      _message = messages;
+      _messageActionType = "messages";
       _secure = context.IsSecureConnection;
       _stream = context.Stream;
       _waitTime = TimeSpan.FromSeconds (1);
@@ -188,7 +190,7 @@ namespace WebSocketSharp
 
       _closeContext = context.Close;
       _logger = context.Log;
-      _message = messages;
+      _messageActionType = "messages";
       _secure = context.IsSecureConnection;
       _stream = context.Stream;
       _waitTime = TimeSpan.FromSeconds (1);
@@ -274,7 +276,7 @@ namespace WebSocketSharp
       _base64Key = CreateBase64Key ();
       _client = true;
       _logger = new Logger ();
-      _message = messagec;
+      _messageActionType = "messagec";
       _secure = _uri.Scheme == "wss";
       _waitTime = TimeSpan.FromSeconds (5);
 
@@ -1481,7 +1483,15 @@ namespace WebSocketSharp
         e = _messageEventQueue.Dequeue ();
       }
 
-      _message (e);
+        if(_messageActionType == "messages")
+	    {
+                messages(e);
+            }
+          else if (_messageActionType == "messagec")
+	    {
+                messagec(e);
+
+        }
     }
 
     private void messagec (MessageEventArgs e)
@@ -1532,10 +1542,12 @@ namespace WebSocketSharp
     private void open ()
     {
       _inMessage = true;
-      startReceiving ();
+      startReceiving (); 
       try {
-        OnOpen.Emit (this, EventArgs.Empty);
-      }
+                Console.WriteLine("Before Emit");
+                OnOpen.Emit (this, EventArgs.Empty);
+                Console.WriteLine("After Emit");
+            }
       catch (Exception ex) {
         _logger.Error (ex.ToString ());
         error ("An error has occurred during the OnOpen event.", ex);
@@ -1551,8 +1563,16 @@ namespace WebSocketSharp
         e = _messageEventQueue.Dequeue ();
       }
 
-      _message.BeginInvoke (e, ar => _message.EndInvoke (ar), null);
-    }
+            if (_messageActionType == "messages")
+            {
+                messages(e);
+            }
+            else if (_messageActionType == "messagec")
+            {
+                messagec(e);
+
+            }
+        }
 
     private bool ping (byte[] data)
     {
